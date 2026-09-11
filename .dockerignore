@@ -1,22 +1,2 @@
-# Build/deps artifacts — regenerated inside the image
-node_modules
-.next
-out
-build
-*.tsbuildinfo
-
-# VCS + local junk
-.git
-.gitignore
-.DS_Store
-*.pem
-npm-debug.log*
-yarn-error.log*
-
-# Secrets — inject via platform env vars, never bake into the image
-.env*
-.clerk
-
-# NOTE: do NOT ignore .agents/ or .claude/ — the builder auto-detects the
-# package.json files under .agents/skills/**/templates/ and emits COPY steps
-# for them, which fail if they're missing from the build context.
+.claude/
+.agents/
