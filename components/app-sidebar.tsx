@@ -1,40 +1,17 @@
-"use client"
-
 import * as React from "react"
 import { OrganizationSwitcher, UserButton } from "@clerk/nextjs"
-import { Plus, Workflow } from "lucide-react"
 
+import { WorkflowNav } from "@/features/workflows/components/workflow-nav"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupAction,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 
-const workflows = [
-  "dominant-wasp",
-  "honest-reindeer",
-  "expected-llama",
-  "essential-ocelot",
-  "creepy-echidna",
-  "eastern-silkworm",
-  "cultural-lion",
-  "proud-weasel",
-  "regional-bonobo",
-]
-
 function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const [activeWorkflow, setActiveWorkflow] = React.useState(workflows[0])
-
   return (
     <TooltipProvider>
       <Sidebar collapsible="icon" {...props} variant="inset">
@@ -63,31 +40,7 @@ function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarTrigger className="shrink-0" />
         </SidebarHeader>
         <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupLabel>Workflows</SidebarGroupLabel>
-            <SidebarGroupAction title="New workflow">
-              <Plus />
-              <span className="sr-only">New workflow</span>
-            </SidebarGroupAction>
-            <SidebarGroupContent>
-              <SidebarMenu className="gap-y-0.5">
-                {workflows.map((workflow) => (
-                  <SidebarMenuItem key={workflow}>
-                    <SidebarMenuButton
-                      isActive={workflow === activeWorkflow}
-                      onClick={() => setActiveWorkflow(workflow)}
-                      tooltip={workflow}
-                    >
-                      {/* Only shown collapsed — expanded, the design is
-                       * text-only and the label is clipped away at 2rem. */}
-                      <Workflow className="hidden group-data-[collapsible=icon]:block" />
-                      <span>{workflow}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          <WorkflowNav />
         </SidebarContent>
         <SidebarFooter className="group-data-[collapsible=icon]:items-center">
           <UserButton appearance={{
