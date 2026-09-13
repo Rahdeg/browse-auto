@@ -1,8 +1,10 @@
 "use client"
 
-import * as React from "react"
+import { useTransition } from "react"
 import { Plus, Workflow } from "lucide-react"
 
+import type { Workflow as WorkflowRow } from "@/db/schema"
+import { generateSlug } from "@/features/workflows/lib/generate-slug"
 import {
   Popover,
   PopoverContent,
@@ -20,31 +22,30 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 
-const workflows = [
-  "dominant-wasp",
-  "honest-reindeer",
-  "expected-llama",
-  "essential-ocelot",
-  "creepy-echidna",
-  "eastern-silkworm",
-  "cultural-lion",
-  "proud-weasel",
-  "regional-bonobo",
-]
-
-function WorkflowNav() {
+function WorkflowNav({
+  workflows,
+  createWorkflowAction,
+}: {
+  workflows: WorkflowRow[]
+  createWorkflowAction: (name: string) => Promise<void>
+}) {
   // On mobile the sidebar renders inside a full-width sheet, so it gets the
   // expanded list even though `state` tracks the desktop collapse.
   const { state, isMobile } = useSidebar()
-  const [activeWorkflow, setActiveWorkflow] = React.useState(workflows[0])
+  // The action redirects to the new workflow, so the transition stays pending
+  // until that navigation commits.
+  const [isCreating, startCreating] = useTransition()
+
+  const createWorkflow = () => {
+    startCreating(async () => {
+      await createWorkflowAction(generateSlug())
+    })
+  }
 
   const workflowItems = workflows.map((workflow) => (
-    <SidebarMenuItem key={workflow}>
-      <SidebarMenuButton
-        isActive={workflow === activeWorkflow}
-        onClick={() => setActiveWorkflow(workflow)}
-      >
-        <span>{workflow}</span>
+    <SidebarMenuItem key={workflow.id}>
+      <SidebarMenuButton>
+        <span>{workflow.name}</span>
       </SidebarMenuButton>
     </SidebarMenuItem>
   ))
@@ -67,7 +68,10 @@ function WorkflowNav() {
                 <PopoverContent side="right" align="start">
                   <SidebarMenu>
                     <SidebarMenuItem>
-                      <SidebarMenuButton>
+                      <SidebarMenuButton
+                        onClick={createWorkflow}
+                        disabled={isCreating}
+                      >
                         <Plus />
                         <span>New workflow</span>
                       </SidebarMenuButton>
@@ -87,7 +91,11 @@ function WorkflowNav() {
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Workflows</SidebarGroupLabel>
-      <SidebarGroupAction title="New workflow">
+      <SidebarGroupAction
+        title="New workflow"
+        onClick={createWorkflow}
+        disabled={isCreating}
+      >
         <Plus />
         <span className="sr-only">New workflow</span>
       </SidebarGroupAction>

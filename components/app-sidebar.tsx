@@ -1,6 +1,9 @@
 import * as React from "react"
 import { OrganizationSwitcher, UserButton } from "@clerk/nextjs"
+import { auth } from "@clerk/nextjs/server"
 
+import { createWorkflowAction } from "@/features/workflows/actions"
+import { listWorkflows } from "@/features/workflows/data"
 import { WorkflowNav } from "@/features/workflows/components/workflow-nav"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import {
@@ -11,7 +14,12 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 
-function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+async function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  // Workflows are owned by an organization, so there is nothing to list until
+  // the user picks one at /choose-organization.
+  const { orgId } = await auth()
+  const workflows = orgId ? await listWorkflows(orgId) : []
+
   return (
     <TooltipProvider>
       <Sidebar collapsible="icon" {...props} variant="inset">
@@ -40,7 +48,10 @@ function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarTrigger className="shrink-0" />
         </SidebarHeader>
         <SidebarContent>
-          <WorkflowNav />
+          <WorkflowNav
+            workflows={workflows}
+            createWorkflowAction={createWorkflowAction}
+          />
         </SidebarContent>
         <SidebarFooter className="group-data-[collapsible=icon]:items-center">
           <UserButton appearance={{
