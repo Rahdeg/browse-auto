@@ -1,4 +1,11 @@
-import { index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core"
+import {
+  index,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core"
 
 /**
  * Clerk owns users and organizations, so we only store its string identifiers
@@ -9,8 +16,8 @@ export const workflows = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
-    organizationId: text("organization_id").notNull(),
-    createdBy: text("created_by").notNull(),
+    orgId: text("org_id").notNull(),
+    graph: jsonb("graph"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -19,7 +26,7 @@ export const workflows = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [index("workflows_organization_id_idx").on(table.organizationId)]
+  (table) => [index("workflows_org_id_idx").on(table.orgId)]
 )
 
 export type Workflow = typeof workflows.$inferSelect
