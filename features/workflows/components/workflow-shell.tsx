@@ -1,4 +1,6 @@
 import type { Workflow } from "@/db/schema"
+import { runWorkflowAction } from "@/features/workflows/actions"
+import { RightSidebar } from "@/features/workflows/components/right-sidebar"
 import {
   ResizableHandle,
   ResizablePanel,
@@ -31,9 +33,10 @@ function WorkflowShell({ workflowId }: { workflowId: Workflow["id"] }) {
       </ResizablePanel>
       <ResizableHandle />
       <ResizablePanel defaultSize="16rem" minSize="14rem" maxSize="36rem">
-        <div className="flex size-full items-center justify-center text-sm text-muted-foreground">
-          Inspector
-        </div>
+        <RightSidebar
+          workflowId={workflowId}
+          runWorkflowAction={runWorkflowAction}
+        />
       </ResizablePanel>
     </ResizablePanelGroup>
   )
