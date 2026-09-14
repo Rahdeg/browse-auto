@@ -1,6 +1,8 @@
 "use client"
 
 import { useTransition } from "react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { Plus, Workflow } from "lucide-react"
 
 import type { Workflow as WorkflowRow } from "@/db/schema"
@@ -32,6 +34,7 @@ function WorkflowNav({
   // On mobile the sidebar renders inside a full-width sheet, so it gets the
   // expanded list even though `state` tracks the desktop collapse.
   const { state, isMobile } = useSidebar()
+  const pathname = usePathname()
   // The action redirects to the new workflow, so the transition stays pending
   // until that navigation commits.
   const [isCreating, startCreating] = useTransition()
@@ -42,13 +45,19 @@ function WorkflowNav({
     })
   }
 
-  const workflowItems = workflows.map((workflow) => (
-    <SidebarMenuItem key={workflow.id}>
-      <SidebarMenuButton>
-        <span>{workflow.name}</span>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-  ))
+  const workflowItems = workflows.map((workflow) => {
+    const href = `/workflows/${workflow.id}`
+
+    return (
+      <SidebarMenuItem key={workflow.id}>
+        <SidebarMenuButton asChild isActive={pathname === href}>
+          <Link href={href}>
+            <span>{workflow.name}</span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    )
+  })
 
   if (state === "collapsed" && !isMobile) {
     return (
