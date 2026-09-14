@@ -1,16 +1,17 @@
 import { auth } from "@clerk/nextjs/server"
 
+import { WorkflowShell } from "@/features/workflows/components/workflow-shell"
+
 export default async function Page({ params }: PageProps<"/workflows/[id]">) {
   await auth.protect()
 
   const { id } = await params
 
+  // `min-h-0` lets the shell shrink inside the inset's column instead of
+  // overflowing it, so its `size-full` resolves to the leftover height.
   return (
-    <div className="flex flex-1 flex-col gap-1 p-6">
-      <h1 className="font-heading text-sm font-medium tracking-tight">
-        Workflow
-      </h1>
-      <p className="text-sm/relaxed text-muted-foreground">{id}</p>
+    <div className="min-h-0 flex-1">
+      <WorkflowShell workflowId={id} />
     </div>
   )
 }
