@@ -8,42 +8,35 @@ import {
   ConnectionLineType,
   Controls,
   MiniMap,
+  NodeTypes,
   ReactFlow,
   useEdgesState,
   useNodesState,
   type ColorMode,
   type Edge,
-  type Node,
   type OnConnect,
 } from "@xyflow/react"
 import { useTheme } from "next-themes"
 
 import "@xyflow/react/dist/style.css"
 
-const initialNodes: Node[] = [
+import { StepNode } from "@/features/workflows/components/step-node"
+import type { StepNodeType } from "@/features/workflows/nodes/node-registry"
+
+
+
+const nodeTypes: NodeTypes = { step: StepNode }
+
+const initialNodes: StepNodeType[] = [
   {
     id: "start",
-    type: "input",
+    type: "step",
     position: { x: 0, y: 0 },
-    data: { label: "Start" },
-  },
-  {
-    id: "navigate",
-    position: { x: 0, y: 120 },
-    data: { label: "Navigate" },
-  },
-  {
-    id: "extract",
-    type: "output",
-    position: { x: 0, y: 240 },
-    data: { label: "Extract" },
+    data: { type: "start", kind: "trigger", title: "Start", values: {} },
   },
 ]
 
-const initialEdges: Edge[] = [
-  { id: "start-navigate", source: "start", target: "navigate" },
-  { id: "navigate-extract", source: "navigate", target: "extract" },
-]
+const initialEdges: Edge[] = []
 
 // React swaps these snapshots only once hydration has finished, which is what
 // makes the pair safe to branch on while rendering.
@@ -78,6 +71,7 @@ function Canvas() {
 
   return (
     <ReactFlow
+      nodeTypes={nodeTypes}
       nodes={nodes}
       edges={edges}
       onNodesChange={onNodesChange}

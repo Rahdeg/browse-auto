@@ -19,3 +19,12 @@ enforces the shape.
 
 This project has Trigger.dev agent skills installed in `.claude/skills/`. Before writing or changing Trigger.dev code (background tasks, scheduled tasks, realtime, or chat.agent AI agents), load the most relevant skill: `trigger-chat-agent-advanced`, `trigger-realtime-and-frontend`, `trigger-cost-savings`, `trigger-getting-started`, `trigger-authoring-tasks`, `trigger-authoring-chat-agent`.
 <!-- TRIGGER.DEV SKILLS END -->
+
+# React Flow (@xyflow/react)
+
+Do not write React Flow code from memory — the API has changed across versions and
+training data is unreliable here. Before using or changing any React Flow component,
+hook, type, or prop (`<ReactFlow />`, `useNodesState`, `useReactFlow`, custom nodes,
+edges, handles, `NodeProps`, etc.), fetch https://reactflow.dev/llms.txt and follow
+the linked page for the specific API you need. Verify the installed version in
+`package.json` matches the docs you read.
