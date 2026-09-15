@@ -1,5 +1,6 @@
 import type { Workflow } from "@/db/schema"
 import { runWorkflowAction } from "@/features/workflows/actions"
+import { Canvas } from "@/features/workflows/components/canvas"
 import { RightSidebar } from "@/features/workflows/components/right-sidebar"
 import {
   ResizableHandle,
@@ -19,9 +20,7 @@ function WorkflowShell({ workflowId }: { workflowId: Workflow["id"] }) {
       <ResizablePanel minSize="30rem">
         <ResizablePanelGroup orientation="vertical">
           <ResizablePanel minSize="18rem">
-            <div className="flex size-full items-center justify-center text-sm text-muted-foreground">
-              Canvas
-            </div>
+            <Canvas />
           </ResizablePanel>
           <ResizableHandle />
           <ResizablePanel defaultSize="8rem" minSize="6rem">
