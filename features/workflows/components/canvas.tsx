@@ -1,8 +1,7 @@
 "use client"
 
-import { useCallback, useSyncExternalStore } from "react"
+import { useSyncExternalStore } from "react"
 import {
-  addEdge,
   Background,
   BackgroundVariant,
   ConnectionLineType,
@@ -10,15 +9,15 @@ import {
   MiniMap,
   NodeTypes,
   ReactFlow,
-  useEdgesState,
-  useNodesState,
   type ColorMode,
   type Edge,
-  type OnConnect,
 } from "@xyflow/react"
+import { useLiveblocksFlow, Cursors } from "@liveblocks/react-flow"
 import { useTheme } from "next-themes"
 
 import "@xyflow/react/dist/style.css"
+import "@liveblocks/react-ui/styles.css";
+import "@liveblocks/react-flow/styles.css";
 
 import { StepNode } from "@/features/workflows/components/step-node"
 import type { StepNodeType } from "@/features/workflows/nodes/node-registry"
@@ -45,8 +44,24 @@ const onClient = () => true
 const onServer = () => false
 
 function Canvas() {
-  const [nodes, , onNodesChange] = useNodesState(initialNodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
+  /**
+   * Storage holds the diagram, so the initial values seed an empty room rather
+   * than describing local state. `suspense` lets the `ClientSideSuspense` in
+   * `Room` cover the load, which is what narrows `nodes` and `edges` away from
+   * null here.
+   */
+  const {
+    nodes,
+    edges,
+    onNodesChange,
+    onEdgesChange,
+    onConnect,
+    onDelete,
+  } = useLiveblocksFlow<StepNodeType, Edge>({
+    suspense: true,
+    nodes: { initial: initialNodes },
+    edges: { initial: initialEdges },
+  })
 
   const { resolvedTheme } = useTheme()
   const hydrated = useSyncExternalStore(subscribeToNothing, onClient, onServer)
@@ -64,11 +79,6 @@ function Canvas() {
   const colorMode: ColorMode =
     hydrated && resolvedTheme === "dark" ? "dark" : "light"
 
-  const onConnect = useCallback<OnConnect>(
-    (connection) => setEdges((eds) => addEdge(connection, eds)),
-    [setEdges],
-  )
-
   return (
     <ReactFlow
       nodeTypes={nodeTypes}
@@ -77,6 +87,7 @@ function Canvas() {
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onConnect={onConnect}
+      onDelete={onDelete}
       colorMode={colorMode}
       fitView
       connectionLineType={ConnectionLineType.SmoothStep}
@@ -96,7 +107,8 @@ function Canvas() {
     >
       <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
       <Controls />
-      <MiniMap pannable zoomable />
+      <Cursors />
+      {/* <MiniMap pannable zoomable /> */}
     </ReactFlow>
   )
 }
