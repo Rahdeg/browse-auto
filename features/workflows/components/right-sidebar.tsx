@@ -1,7 +1,9 @@
 "use client"
 
 import { useState } from "react"
+import { useReactFlow, useStoreApi } from "@xyflow/react"
 import { MoreHorizontal, Play, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 
 import {
   Accordion,
@@ -156,11 +158,61 @@ const sections: { kind: StepNodeKind; label: string }[] = [
 // Every node type from the registry, filtered into the groups below.
 const definitions = Object.values(nodeRegistry)
 
+// A step node is laid out at `min-w-50` around a single row of content. React
+// Flow only learns a node's real size once it has rendered, so a node being
+// added is centered on these nominal dimensions instead.
+const nodeSize = { width: 200, height: 52 }
+
 // The Toolbar tab: a button per node type that adds it to the canvas.
 function Palette() {
+  // The store these read is the one the page creates, which is also the one the
+  // canvas renders from: the addition below goes through `onNodesChange` there,
+  // and so through Liveblocks to everyone else in the room.
+  const { getNodes, addNodes, screenToFlowPosition } =
+    useReactFlow<StepNodeType>()
+  const store = useStoreApi()
+
   const add = (type: NodeType) => {
-    // TODO: add the clicked node to the canvas (one trigger max).
-    void type
+    const def = nodeRegistry[type]
+    const nodes = getNodes()
+
+    // A run needs one unambiguous entry point, so a second trigger is rejected
+    // rather than added as an unreachable node.
+    if (def.kind === "trigger" && nodes.some((n) => n.data.kind === "trigger")) {
+      toast.error("This workflow already has a trigger")
+      return
+    }
+
+    // Copies of one node type are numbered so they stay tellable apart in the
+    // editor. Taking the lowest free number keeps the names short and hands a
+    // number back for reuse once its node is deleted.
+    const taken = new Set(
+      nodes.filter((n) => n.data.type === type).map((n) => n.data.title)
+    )
+    let count = 1
+    while (taken.has(`${def.label} ${count}`)) count++
+
+    // The canvas fills its own pane, so the middle of the current view is that
+    // element's midpoint read back through the viewport transform. Without a
+    // canvas mounted there is no view to be in the middle of, so the node falls
+    // back to the origin.
+    const rect = store.getState().domNode?.getBoundingClientRect()
+    const center = rect
+      ? screenToFlowPosition({
+          x: rect.x + rect.width / 2,
+          y: rect.y + rect.height / 2,
+        })
+      : { x: 0, y: 0 }
+
+    addNodes({
+      id: crypto.randomUUID(),
+      type: "step",
+      position: {
+        x: center.x - nodeSize.width / 2,
+        y: center.y - nodeSize.height / 2,
+      },
+      data: { type, kind: def.kind, title: `${def.label} ${count}`, values: {} },
+    })
   }
 
   return (

@@ -1,5 +1,4 @@
 import type { Workflow } from "@/db/schema"
-import { runWorkflowAction } from "@/features/workflows/actions"
 import { Canvas } from "@/features/workflows/components/canvas"
 import { RightSidebar } from "@/features/workflows/components/right-sidebar"
 import {
@@ -31,12 +30,9 @@ function WorkflowShell({ workflowId }: { workflowId: Workflow["id"] }) {
         </ResizablePanelGroup>
       </ResizablePanel>
       <ResizableHandle />
-      <ResizablePanel defaultSize="16rem" minSize="14rem" maxSize="36rem">
-        <RightSidebar
-          workflowId={workflowId}
-          runWorkflowAction={runWorkflowAction}
-        />
-      </ResizablePanel>
+      {/* The sidebar is the panel, sizes and all, so wrapping it in another one
+          here would register a second panel with this group. */}
+      <RightSidebar />
     </ResizablePanelGroup>
   )
 }

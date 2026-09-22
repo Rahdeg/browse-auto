@@ -1,4 +1,5 @@
 import { auth } from "@clerk/nextjs/server"
+import { ReactFlowProvider } from "@xyflow/react"
 
 import { WorkflowShell } from "@/features/workflows/components/workflow-shell"
 import { Room } from "@/features/workflows/components/room"
@@ -31,13 +32,20 @@ export default async function Page({ params }: PageProps<"/workflows/[id]">) {
     metadata: { title: workflow.name },
   })
 
+  // The toolbar that adds nodes lives in the sidebar, a sibling of the canvas
+  // rather than a child of it, so the React Flow store is created here instead
+  // of by the <ReactFlow /> element. Both halves of the editor then read and
+  // write the same nodes.
+  //
   // `min-h-0` lets the shell shrink inside the inset's column instead of
   // overflowing it, so its `size-full` resolves to the leftover height.
   return (
-    <Room roomId={id}>
-      <div className="min-h-0 flex-1">
-        <WorkflowShell workflowId={id} />
-      </div>
-    </Room>
+    <ReactFlowProvider>
+      <Room roomId={id}>
+        <div className="min-h-0 flex-1">
+          <WorkflowShell workflowId={id} />
+        </div>
+      </Room>
+    </ReactFlowProvider>
   )
 }
