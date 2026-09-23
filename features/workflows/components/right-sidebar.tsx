@@ -1,10 +1,20 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import { useReactFlow, useStore, useStoreApi } from "@xyflow/react"
 import { MoreHorizontal, Play, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import {
   Accordion,
   AccordionContent,
@@ -22,7 +32,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ResizablePanel } from "@/components/ui/resizable"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+
+import type { Workflow } from "@/db/schema"
+import { deleteWorkflowAction } from "@/features/workflows/actions"
 
 import {
   nodeRegistry,
@@ -84,8 +98,10 @@ function Section({
 // Editor tab — edits the fields of the selected node.
 // ---------------------------------------------------------------------------
 
-// A single editor field for a node property.
-function FieldInput({
+// A single editor field for a node property. The registry decides the shape of
+// the control: a textarea for fields that opt into `multiline`, an input for
+// everything else.
+function Field({
   field,
   value,
   onChange,
@@ -94,19 +110,22 @@ function FieldInput({
   value: string
   onChange: (value: string) => void
 }) {
-  // TODO: support a multiline field variant (textarea).
-  return (
-    <Input
-      id={field.key}
-      value={value}
-      placeholder={field.placeholder}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  )
+  const props = {
+    id: field.key,
+    value,
+    placeholder: field.placeholder,
+    onChange: (
+      e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    ) => onChange(e.target.value),
+  }
+
+  return field.multiline ? <Textarea {...props} /> : <Input {...props} />
 }
 
 // The Editor tab: one input per field on the selected node, or an empty state.
 function Inspector({ node }: { node: StepNodeType | undefined }) {
+  const { updateNodeData } = useReactFlow<StepNodeType>()
+
   if (!node) {
     return (
       <Section title="Editor">
@@ -128,13 +147,15 @@ function Inspector({ node }: { node: StepNodeType | undefined }) {
             <div key={field.key} className="flex flex-col gap-1.5">
               <Label htmlFor={field.key} className="text-xs">
                 {field.label}
+                {field.required && <span className="text-destructive">*</span>}
               </Label>
-              <FieldInput
+              <Field
                 field={field}
                 value={values[field.key] ?? ""}
                 onChange={(value) => {
-                  // TODO: save the edit back onto the selected node.
-                  void value
+                  updateNodeData(node.id, {
+                    values: { ...values, [field.key]: value },
+                  })
                 }}
               />
             </div>
@@ -257,28 +278,86 @@ function Palette() {
 // Header — workflow-level actions shown above the tabs.
 // ---------------------------------------------------------------------------
 
-// The "..." menu for workflow-level actions.
-function ActionsMenu() {
+// The "..." menu for workflow-level actions, and the confirmation the
+// destructive one asks for.
+function ActionsMenu({ workflowId }: { workflowId: Workflow["id"] }) {
+  const [confirming, setConfirming] = useState(false)
+  // The action redirects to the home page once the row and the room are gone,
+  // so the transition stays pending until that navigation commits.
+  const [isDeleting, startDeleting] = useTransition()
+
+  // The action ends in a redirect, which the router delivers by rejecting this
+  // promise once it has navigated. Nothing catches it here, exactly as the
+  // create action is called from the sidebar: the rejection belongs to Next's
+  // redirect boundary, and intercepting it is what turned every successful
+  // delete into an error.
+  const deleteWorkflow = () => {
+    startDeleting(async () => {
+      await deleteWorkflowAction(workflowId)
+
+    })
+  }
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button size="icon" variant="ghost">
-          <MoreHorizontal />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-48">
-        <DropdownMenuItem
-          variant="destructive"
-          className="text-xs [&_svg:not([class*='size-'])]:size-3.5"
-          onSelect={() => {
-            // TODO: delete the workflow, then navigate away.
-          }}
-        >
-          <Trash2 />
-          Delete workflow
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="icon" variant="ghost">
+            <MoreHorizontal />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="min-w-48">
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={isDeleting}
+            className="text-xs [&_svg:not([class*='size-'])]:size-3.5"
+            onSelect={() => setConfirming(true)}
+          >
+            <Trash2 />
+            Delete workflow
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* A workflow can't be restored, and it goes for the whole organization
+          rather than just this editor, so the delete is confirmed first. This
+          dialog is the last point at which it can be called off. */}
+      <AlertDialog
+        open={confirming}
+        // A delete in flight ends in a navigation, so the dialog stays put
+        // rather than letting an outside click dismiss it mid-request.
+        onOpenChange={(open) => {
+          if (!isDeleting) setConfirming(open)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this workflow?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This deletes the workflow and its canvas for everyone in your
+              organization, including anyone editing it right now. It can’t be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={isDeleting}
+              onClick={(event) => {
+                // The action button closes the dialog on click, which would
+                // unmount the disabled button before the delete lands. Keeping
+                // it open leaves the pending state somewhere to show.
+                event.preventDefault()
+                deleteWorkflow()
+              }}
+            >
+              {isDeleting ? "Deleting…" : "Delete workflow"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
 
@@ -302,13 +381,18 @@ function RunButton() {
 // The sidebar itself — header on top, then the Toolbar / Editor tabs.
 // ---------------------------------------------------------------------------
 
-export function RightSidebar() {
+export function RightSidebar({ workflowId }: { workflowId: Workflow["id"] }) {
   const [tab, setTab] = useState("toolbar")
 
   // TODO: read the currently selected node from React Flow.
   const selected = useStore((s) => s.nodes.find((n) => n.selected)) as StepNodeType | undefined
 
   // TODO: auto-switch to the Editor tab when the selection changes.
+  const [prevSelectedId, setPrevSelectedId] = useState(selected?.id)
+  if (selected && selected.id !== prevSelectedId) {
+    setPrevSelectedId(selected.id)
+    setTab("editor")
+  }
 
   return (
     <ResizablePanel
@@ -320,7 +404,7 @@ export function RightSidebar() {
     >
       <Tabs value={tab} onValueChange={setTab} className="size-full gap-0">
         <div className="flex items-center justify-between border-b border-border p-2">
-          <ActionsMenu />
+          <ActionsMenu workflowId={workflowId} />
           <RunButton />
         </div>
         <TabsList className="m-2 w-fit bg-background">

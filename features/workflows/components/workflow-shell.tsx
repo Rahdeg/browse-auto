@@ -32,7 +32,7 @@ function WorkflowShell({ workflowId }: { workflowId: Workflow["id"] }) {
       <ResizableHandle />
       {/* The sidebar is the panel, sizes and all, so wrapping it in another one
           here would register a second panel with this group. */}
-      <RightSidebar />
+      <RightSidebar workflowId={workflowId} />
     </ResizablePanelGroup>
   )
 }

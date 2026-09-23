@@ -8,6 +8,10 @@ export type NodeField = {
   key: string
   label: string
   placeholder?: string
+  // Renders as a textarea instead of a single-line input, for values that run
+  // long or span several lines (a script, a prompt, a block of text).
+  multiline?: boolean
+  required?: boolean
 }
 
 // A node type's manifest entry. Add a node by adding an entry to nodeRegistry.
@@ -35,7 +39,20 @@ export const nodeRegistry = {
     label: "Open URL",
     icon: Globe,
     accent: "bg-emerald-500 text-white",
-    fields: [{ key: "url", label: "URL", placeholder: "https://youtube.com" }],
+    fields: [
+      {
+        key: "url",
+        label: "URL",
+        placeholder: "https://youtube.com",
+        required: true,
+      },
+      // {
+      //   key: "description",
+      //   label: "Description",
+      //   placeholder: "A description of the URL",
+      //   multiline: true,
+      // },
+    ],
   },
 } satisfies Record<string, NodeDefinition>
 
