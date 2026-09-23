@@ -7,8 +7,9 @@ import { tasks } from "@trigger.dev/sdk"
 
 import type { Workflow } from "@/db/schema"
 import type { helloWorldTask } from "@/trigger/example"
+import { liveblocks } from "@/lib/liveblocks"
 
-import { createWorkflow } from "./data"
+import { createWorkflow, deleteWorkflow } from "./data"
 
 export async function createWorkflowAction(name: string) {
   const { orgId } = await auth()
@@ -49,4 +50,62 @@ export async function runWorkflowAction(workflowId: Workflow["id"]) {
   // the sidebar can subscribe to it in realtime without a secret key in the
   // browser. It expires 15 minutes after the trigger.
   return { runId: handle.id, publicAccessToken: handle.publicAccessToken }
+}
+
+export async function deleteWorkflowAction(workflowId: Workflow["id"]) {
+  const { userId, orgId } = await auth()
+
+  if (!userId) {
+    throw new Error("Unauthorized")
+  }
+
+  // Workflows are owned by an organization, so without an active one there is
+  // no row this caller is allowed to reach.
+  if (!orgId) {
+    throw new Error("No active organization")
+  }
+
+  // Server actions are reachable by POST on their own, so scoping the delete to
+  // the organization is the authorization check too: a workflow owned by
+  // another organization matches no row and comes back undefined.
+  const workflow = await deleteWorkflow(orgId, workflowId)
+
+  if (!workflow) {
+    throw new Error("Workflow not found")
+  }
+
+  // The canvas shares its graph through a Liveblocks room keyed by the workflow
+  // id, so the row leaves that room behind. Everyone still in it loses their
+  // connection when it goes, so the room is told what happened while it is
+  // still there to broadcast into.
+  //
+  // Both calls are past the point of no return — the row is already gone, so
+  // the workflow is deleted either way and a room or a notice that didn't make
+  // it is worth logging rather than failing the delete over. They are also
+  // independent: a broadcast that fails must not keep the room alive.
+  try {
+    await liveblocks.broadcastEvent(workflowId, {
+      type: "workflowDeleted",
+      deletedBy: userId,
+    })
+  } catch (error) {
+    console.error(`Failed to announce the delete of workflow ${workflowId}`, error)
+  }
+
+  try {
+    await liveblocks.deleteRoom(workflowId)
+  } catch (error) {
+    console.error(`Failed to delete Liveblocks room ${workflowId}`, error)
+  }
+
+  // The sidebar listing lives in the dashboard layout, which the home page
+  // below shares with the workflow page: without invalidating that layout the
+  // deleted workflow stays in the list after the navigation.
+  revalidatePath("/", "layout")
+
+  // `redirect` throws, so it stays outside the try/catch above. The name rides
+  // along because this navigation is the last thing to happen in the delete:
+  // the client that asked for it is on its way out, so the confirmation is left
+  // for the page being landed on to show.
+  redirect(`/?deleted=${encodeURIComponent(workflow.name)}`)
 }

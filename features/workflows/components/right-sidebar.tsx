@@ -1,10 +1,20 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import { useReactFlow, useStore, useStoreApi } from "@xyflow/react"
 import { MoreHorizontal, Play, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import {
   Accordion,
   AccordionContent,
@@ -24,6 +34,9 @@ import { ResizablePanel } from "@/components/ui/resizable"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+
+import type { Workflow } from "@/db/schema"
+import { deleteWorkflowAction } from "@/features/workflows/actions"
 
 import {
   nodeRegistry,
@@ -265,28 +278,86 @@ function Palette() {
 // Header — workflow-level actions shown above the tabs.
 // ---------------------------------------------------------------------------
 
-// The "..." menu for workflow-level actions.
-function ActionsMenu() {
+// The "..." menu for workflow-level actions, and the confirmation the
+// destructive one asks for.
+function ActionsMenu({ workflowId }: { workflowId: Workflow["id"] }) {
+  const [confirming, setConfirming] = useState(false)
+  // The action redirects to the home page once the row and the room are gone,
+  // so the transition stays pending until that navigation commits.
+  const [isDeleting, startDeleting] = useTransition()
+
+  // The action ends in a redirect, which the router delivers by rejecting this
+  // promise once it has navigated. Nothing catches it here, exactly as the
+  // create action is called from the sidebar: the rejection belongs to Next's
+  // redirect boundary, and intercepting it is what turned every successful
+  // delete into an error.
+  const deleteWorkflow = () => {
+    startDeleting(async () => {
+      await deleteWorkflowAction(workflowId)
+
+    })
+  }
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button size="icon" variant="ghost">
-          <MoreHorizontal />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-48">
-        <DropdownMenuItem
-          variant="destructive"
-          className="text-xs [&_svg:not([class*='size-'])]:size-3.5"
-          onSelect={() => {
-            // TODO: delete the workflow, then navigate away.
-          }}
-        >
-          <Trash2 />
-          Delete workflow
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="icon" variant="ghost">
+            <MoreHorizontal />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="min-w-48">
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={isDeleting}
+            className="text-xs [&_svg:not([class*='size-'])]:size-3.5"
+            onSelect={() => setConfirming(true)}
+          >
+            <Trash2 />
+            Delete workflow
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* A workflow can't be restored, and it goes for the whole organization
+          rather than just this editor, so the delete is confirmed first. This
+          dialog is the last point at which it can be called off. */}
+      <AlertDialog
+        open={confirming}
+        // A delete in flight ends in a navigation, so the dialog stays put
+        // rather than letting an outside click dismiss it mid-request.
+        onOpenChange={(open) => {
+          if (!isDeleting) setConfirming(open)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this workflow?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This deletes the workflow and its canvas for everyone in your
+              organization, including anyone editing it right now. It can’t be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={isDeleting}
+              onClick={(event) => {
+                // The action button closes the dialog on click, which would
+                // unmount the disabled button before the delete lands. Keeping
+                // it open leaves the pending state somewhere to show.
+                event.preventDefault()
+                deleteWorkflow()
+              }}
+            >
+              {isDeleting ? "Deleting…" : "Delete workflow"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
 
@@ -310,7 +381,7 @@ function RunButton() {
 // The sidebar itself — header on top, then the Toolbar / Editor tabs.
 // ---------------------------------------------------------------------------
 
-export function RightSidebar() {
+export function RightSidebar({ workflowId }: { workflowId: Workflow["id"] }) {
   const [tab, setTab] = useState("toolbar")
 
   // TODO: read the currently selected node from React Flow.
@@ -333,7 +404,7 @@ export function RightSidebar() {
     >
       <Tabs value={tab} onValueChange={setTab} className="size-full gap-0">
         <div className="flex items-center justify-between border-b border-border p-2">
-          <ActionsMenu />
+          <ActionsMenu workflowId={workflowId} />
           <RunButton />
         </div>
         <TabsList className="m-2 w-fit bg-background">

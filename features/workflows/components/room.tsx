@@ -1,12 +1,40 @@
 "use client"
 
 import { ReactNode } from "react"
+import { useRouter } from "next/navigation"
 import {
   LiveblocksProvider,
   RoomProvider,
   ClientSideSuspense,
+  useEventListener,
+  useSelf,
 } from "@liveblocks/react/suspense"
+import { toast } from "sonner"
+
 import { Spinner } from "@/components/ui/spinner"
+
+// Deleting a workflow deletes its room, which on its own would just drop
+// everyone else's canvas mid-edit and leave them to find out on their next
+// load. The delete broadcasts into the room first, so anyone still in it hears
+// why and leaves for the home page instead.
+function DeletedListener() {
+  const router = useRouter()
+  const self = useSelf()
+
+  useEventListener(({ event }) => {
+    if (event.type !== "workflowDeleted") return
+
+    // Whoever asked for the delete is already being redirected by the action,
+    // and is confirmed to on the page it lands them on.
+    if (event.deletedBy === self.id) return
+
+    toast.info("This workflow was deleted")
+    // `replace`, because the workflow behind the current entry is gone.
+    router.replace("/")
+  })
+
+  return null
+}
 
 export function Room({
   roomId,
@@ -45,6 +73,10 @@ export function Room({
             <Spinner className="size-6 text-muted-foreground" />
           </div>
         }>
+          {/* Inside the suspense boundary because `useSelf` suspends until the
+              room is connected — which is also the point from which there are
+              events to hear. */}
+          <DeletedListener />
           {children}
         </ClientSideSuspense>
       </RoomProvider>
