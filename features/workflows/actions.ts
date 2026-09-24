@@ -3,13 +3,14 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { auth } from "@clerk/nextjs/server"
-import { tasks } from "@trigger.dev/sdk"
+import { tasks, runs } from "@trigger.dev/sdk"
 
 import type { Workflow } from "@/db/schema"
-import type { helloWorldTask } from "@/trigger/example"
+import type { runWorkflowTask } from "@/features/workflows/tasks/run-workflow"
 import { liveblocks } from "@/lib/liveblocks"
 
-import { createWorkflow, deleteWorkflow } from "./data"
+import { createWorkflow, deleteWorkflow, saveWorkflowGraph } from "./data"
+import { WorkflowGraph } from "@/db/schema"
 
 export async function createWorkflowAction(name: string) {
   const { orgId } = await auth()
@@ -30,7 +31,13 @@ export async function createWorkflowAction(name: string) {
   redirect(`/workflows/${workflow.id}`)
 }
 
-export async function runWorkflowAction(workflowId: Workflow["id"]) {
+export async function runWorkflowAction({
+  id,
+  graph,
+}: {
+  id: string
+  graph: WorkflowGraph
+}) {
   const { orgId } = await auth()
 
   // Runs are billed to the organization that owns the workflow, so an active
@@ -39,12 +46,16 @@ export async function runWorkflowAction(workflowId: Workflow["id"]) {
     throw new Error("No active organization")
   }
 
+  await saveWorkflowGraph({ orgId, id, graph })
+
   // The task is imported as a type only: pulling the instance into the Next.js
   // bundle would drag the whole trigger build in with it. The run is addressed
   // by the task id string instead, and the generic keeps the payload typed.
-  const handle = await tasks.trigger<typeof helloWorldTask>("hello-world", {
-    message: workflowId,
-  })
+  const handle = await tasks.trigger<typeof runWorkflowTask>(
+    "run-workflow",
+    { workflowId: id, orgId },
+    { tags: [`workflow:${id}`] }
+  )
 
   // The handle carries a public access token scoped to read just this run, so
   // the sidebar can subscribe to it in realtime without a secret key in the
@@ -89,7 +100,10 @@ export async function deleteWorkflowAction(workflowId: Workflow["id"]) {
       deletedBy: userId,
     })
   } catch (error) {
-    console.error(`Failed to announce the delete of workflow ${workflowId}`, error)
+    console.error(
+      `Failed to announce the delete of workflow ${workflowId}`,
+      error
+    )
   }
 
   try {
@@ -108,4 +122,11 @@ export async function deleteWorkflowAction(workflowId: Workflow["id"]) {
   // the client that asked for it is on its way out, so the confirmation is left
   // for the page being landed on to show.
   redirect(`/?deleted=${encodeURIComponent(workflow.name)}`)
+}
+
+export async function cancelWorkflowRunAction(runId: string) {
+  const { orgId } = await auth()
+  if (!orgId) throw new Error("No active organization")
+
+  await runs.cancel(runId)
 }
