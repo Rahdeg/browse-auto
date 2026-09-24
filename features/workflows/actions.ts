@@ -6,7 +6,7 @@ import { auth } from "@clerk/nextjs/server"
 import { tasks, runs } from "@trigger.dev/sdk"
 
 import type { Workflow } from "@/db/schema"
-import type { helloWorldTask } from "@/trigger/example"
+import type { runWorkflowTask } from "@/features/workflows/tasks/run-workflow"
 import { liveblocks } from "@/lib/liveblocks"
 
 import { createWorkflow, deleteWorkflow, saveWorkflowGraph } from "./data"
@@ -51,9 +51,11 @@ export async function runWorkflowAction({
   // The task is imported as a type only: pulling the instance into the Next.js
   // bundle would drag the whole trigger build in with it. The run is addressed
   // by the task id string instead, and the generic keeps the payload typed.
-  const handle = await tasks.trigger<typeof helloWorldTask>("hello-world", {
-    message: id,
-  })
+  const handle = await tasks.trigger<typeof runWorkflowTask>(
+    "run-workflow",
+    { workflowId: id, orgId },
+    { tags: [`workflow:${id}`] }
+  )
 
   // The handle carries a public access token scoped to read just this run, so
   // the sidebar can subscribe to it in realtime without a secret key in the
